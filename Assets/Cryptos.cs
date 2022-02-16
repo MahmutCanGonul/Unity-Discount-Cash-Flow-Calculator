@@ -21,8 +21,6 @@ public class Cryptos : MonoBehaviour
     public Sprite acceptTick;
     public Sprite cancelTick;
 
-
-
     private float[] holdPrice;
     private static int indexOfChild;
     private static string buyOrSell;
@@ -37,6 +35,16 @@ public class Cryptos : MonoBehaviour
         InitiliazeCryptos();
         InitializeTotalUSD();
         StartCoroutine(UpdatePrices());
+
+        if (PlayerPrefs.HasKey("Time"))
+        {
+            var timeText = GameObject.Find("Date Time");
+            if(timeText != null)
+            {
+                timeText.GetComponent<TextMeshProUGUI>().text = "Start Time: "+PlayerPrefs.GetString("Time");
+            }
+        }
+
     }
 
 
@@ -46,6 +54,11 @@ public class Cryptos : MonoBehaviour
         if (!PlayerPrefs.HasKey("USD"))
         {
             PlayerPrefs.SetFloat("USD", 1000000);
+        }
+        else
+        {
+            totalUSDText.text = "Loading...";
+            return;
         }
 
         totalUSDText.text = PlayerPrefs.GetFloat("USD") + " $ ";
@@ -75,7 +88,7 @@ public class Cryptos : MonoBehaviour
             var t = Instantiate(crypto, new Vector3(crypto.transform.position.x, positionY), Quaternion.identity);
             t.GetComponent<Image>().sprite = sprites[i];
             t.GetComponentInChildren<TextMeshProUGUI>().text = GetUSDPrice(sprites[i].name) + " $";
-            t.GetComponentInChildren<Button>().name = "Buy " + i.ToString();
+            t.gameObject.transform.GetChild(t.gameObject.transform.childCount - 2).name = "Buy " + i.ToString();
             t.gameObject.transform.GetChild(t.gameObject.transform.childCount - 1).GetComponent<Button>().name = "Sell " + i.ToString();
             t.GetComponent<RectTransform>().SetParent(parents);
             t.gameObject.SetActive(true);
@@ -87,7 +100,7 @@ public class Cryptos : MonoBehaviour
     private IEnumerator UpdatePrices()
     {
         yield return new WaitForSeconds(5f);
-
+        var currentUSD = PlayerPrefs.GetFloat("USD");
         if (content.transform.childCount > 0)
         {
             var i = 0;
@@ -95,6 +108,12 @@ public class Cryptos : MonoBehaviour
             {
                 var nameCrypto = child.GetComponent<Image>().sprite.name;
                 child.GetComponentInChildren<TextMeshProUGUI>().text = GetUSDPrice(nameCrypto) + " $";
+
+                if (PlayerPrefs.HasKey(nameCrypto))
+                {
+                    currentUSD += PlayerPrefs.GetFloat(nameCrypto) * float.Parse(GetUSDPrice(nameCrypto));
+                }
+
                 var price = child.GetComponentInChildren<TextMeshProUGUI>().text.Split(' ');
                 if (!float.IsNaN(holdPrice[i]))
                 {
@@ -108,6 +127,7 @@ public class Cryptos : MonoBehaviour
 
             }
         }
+        totalUSDText.text = currentUSD.ToString() + " $";
         StartCoroutine(UpdatePrices());
     }
 
@@ -197,13 +217,15 @@ public class Cryptos : MonoBehaviour
                         {
                             if (yourPrice <= PlayerPrefs.GetFloat(name))
                             {
+                                var currentCrypto = PlayerPrefs.GetFloat(name) - yourPrice;
+                                PlayerPrefs.SetFloat(name, currentCrypto);
                                 var currentUSD = PlayerPrefs.GetFloat("USD");
                                 var sellingPrice = yourPrice * priceCrypto;
                                 var commission = sellingPrice * 0.001;
                                 sellingPrice -= (float)commission;
-
                                 sellingPrice += currentUSD;
                                 PlayerPrefs.SetFloat("USD", sellingPrice);
+
                                 tradeFunctionsObject.gameObject.SetActive(false);
                                 StartCoroutine(WarningMessage("Order Success!", acceptTick));
                             }
@@ -264,7 +286,14 @@ public class Cryptos : MonoBehaviour
             //Sell Functions
             tradeFunctionsObject.transform.GetChild(1).GetComponent<Button>().image.color = Color.red;
             var cryptoName = content.transform.GetChild(index).GetComponent<Image>().sprite.name;
-            tradeFunctionsObject.transform.GetChild(0).GetComponent<TMP_InputField>().placeholder.GetComponent<TextMeshProUGUI>().text = "Enter Price " + cryptoName;
+            if (PlayerPrefs.HasKey(cryptoName))
+            {
+                tradeFunctionsObject.transform.GetChild(0).GetComponent<TMP_InputField>().placeholder.GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetFloat(cryptoName)+" "+ cryptoName;
+            }
+            else
+            {
+                tradeFunctionsObject.transform.GetChild(0).GetComponent<TMP_InputField>().placeholder.GetComponent<TextMeshProUGUI>().text = "Enter Price " + cryptoName;
+            }
 
         }
 
@@ -277,7 +306,7 @@ public class Cryptos : MonoBehaviour
     }
 
 
-    public IEnumerator WarningMessage(string message,Sprite ticks)
+    public IEnumerator WarningMessage(string message, Sprite ticks)
     {
         warningMessage.gameObject.SetActive(true);
         warningMessage.GetComponent<Image>().sprite = ticks;
@@ -294,6 +323,8 @@ public class Cryptos : MonoBehaviour
         ControlWalletEmpty();
         walletButton.gameObject.SetActive(false);
         turnBackButton.gameObject.SetActive(true);
+        totalUSDText.text = "";
+
         if (content.transform.childCount > 0)
         {
             foreach (Transform child in content.transform)
@@ -363,6 +394,23 @@ public class Cryptos : MonoBehaviour
         turnBackButton.gameObject.SetActive(false);
         walletButton.gameObject.SetActive(true);
 
+    }
+
+    public void ShowGrap()
+    {
+        var getObject = UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject;
+        var cryptoName = getObject.GetComponent<Image>().sprite.name;
+        cryptoName = cryptoName.ToLower();
+        Application.OpenURL("https://www.binance.com/tr/trade/"+cryptoName+"_USDT");
+
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (!PlayerPrefs.HasKey("Time"))
+        {
+            PlayerPrefs.SetString("Time", DateTime.Now.ToString());
+        }
     }
 
 
