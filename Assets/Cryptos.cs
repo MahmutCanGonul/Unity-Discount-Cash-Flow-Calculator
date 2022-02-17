@@ -6,6 +6,8 @@ using System.Net.Http;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.SceneManagement;
+using Assets.SimpleAndroidNotifications;
 
 public class Cryptos : MonoBehaviour
 {
@@ -14,12 +16,13 @@ public class Cryptos : MonoBehaviour
     public GameObject crypto;
     public GameObject content;
     public GameObject tradeFunctionsObject;
-    public TextMeshProUGUI totalUSDText;
+    public GameObject totalUSDText;
     public Button turnBackButton;
     public Button walletButton;
     public GameObject warningMessage;
     public Sprite acceptTick;
     public Sprite cancelTick;
+    public GameObject resetMessage;
 
     private float[] holdPrice;
     private static int indexOfChild;
@@ -39,9 +42,9 @@ public class Cryptos : MonoBehaviour
         if (PlayerPrefs.HasKey("Time"))
         {
             var timeText = GameObject.Find("Date Time");
-            if(timeText != null)
+            if (timeText != null)
             {
-                timeText.GetComponent<TextMeshProUGUI>().text = "Start Time: "+PlayerPrefs.GetString("Time");
+                timeText.GetComponent<TextMeshProUGUI>().text = "Start Time: " + PlayerPrefs.GetString("Time");
             }
         }
 
@@ -57,11 +60,22 @@ public class Cryptos : MonoBehaviour
         }
         else
         {
-            totalUSDText.text = "Loading...";
+            totalUSDText.GetComponent<TextMeshProUGUI>().text = "Loading...";
+            totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "";
             return;
         }
 
-        totalUSDText.text = PlayerPrefs.GetFloat("USD") + " $ ";
+        totalUSDText.GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetFloat("USD") + " $ ";
+    }
+
+    private float CalculationOfProfit(string walletMoney)
+    {
+        var data = walletMoney.Split(' ');
+        var systemMoney = 1000000;
+        var yourMoney = float.Parse(data[0]);
+        var profit = systemMoney - yourMoney;
+
+        return profit;
     }
 
 
@@ -100,6 +114,8 @@ public class Cryptos : MonoBehaviour
     private IEnumerator UpdatePrices()
     {
         yield return new WaitForSeconds(5f);
+
+
         var currentUSD = PlayerPrefs.GetFloat("USD");
         if (content.transform.childCount > 0)
         {
@@ -127,7 +143,29 @@ public class Cryptos : MonoBehaviour
 
             }
         }
-        totalUSDText.text = currentUSD.ToString() + " $";
+        totalUSDText.GetComponent<TextMeshProUGUI>().text = currentUSD.ToString() + " $";
+        var profit = CalculationOfProfit(totalUSDText.GetComponent<TextMeshProUGUI>().text);
+        //Debug.Log(profit);
+        if (profit > 0)
+        {
+            if (totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>() != null)
+            {
+                totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "-" + profit;
+                totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = Color.red;
+            }
+        }
+        else
+        {
+            profit = profit * -1;
+            if (totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>() != null)
+            {
+                totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "+" + profit;
+                totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = Color.green;
+            }
+
+        }
+
+
         StartCoroutine(UpdatePrices());
     }
 
@@ -288,7 +326,7 @@ public class Cryptos : MonoBehaviour
             var cryptoName = content.transform.GetChild(index).GetComponent<Image>().sprite.name;
             if (PlayerPrefs.HasKey(cryptoName))
             {
-                tradeFunctionsObject.transform.GetChild(0).GetComponent<TMP_InputField>().placeholder.GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetFloat(cryptoName)+" "+ cryptoName;
+                tradeFunctionsObject.transform.GetChild(0).GetComponent<TMP_InputField>().placeholder.GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetFloat(cryptoName) + " " + cryptoName;
             }
             else
             {
@@ -320,10 +358,11 @@ public class Cryptos : MonoBehaviour
     public void WalletButton()
     {
         StopAllCoroutines();
-        ControlWalletEmpty();
+        if (ControlWalletEmpty()) { return; }
         walletButton.gameObject.SetActive(false);
         turnBackButton.gameObject.SetActive(true);
-        totalUSDText.text = "";
+        totalUSDText.GetComponent<TextMeshProUGUI>().text = "";
+        totalUSDText.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "";
 
         if (content.transform.childCount > 0)
         {
@@ -369,7 +408,7 @@ public class Cryptos : MonoBehaviour
 
     }
 
-    private void ControlWalletEmpty()
+    private bool ControlWalletEmpty()
     {
         var isEmpty = true;
         for (int i = 0; i < sprites.Count; i++)
@@ -382,7 +421,9 @@ public class Cryptos : MonoBehaviour
             }
         }
 
-        if (isEmpty) { Debug.Log("Empty"); return; }
+        if (isEmpty) { StartCoroutine(WarningMessage("Wallet Empty", cancelTick)); }
+
+        return isEmpty;
 
     }
 
@@ -401,7 +442,7 @@ public class Cryptos : MonoBehaviour
         var getObject = UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject;
         var cryptoName = getObject.GetComponent<Image>().sprite.name;
         cryptoName = cryptoName.ToLower();
-        Application.OpenURL("https://www.binance.com/tr/trade/"+cryptoName+"_USDT");
+        Application.OpenURL("https://www.binance.com/tr/trade/" + cryptoName + "_USDT");
 
     }
 
@@ -410,6 +451,56 @@ public class Cryptos : MonoBehaviour
         if (!PlayerPrefs.HasKey("Time"))
         {
             PlayerPrefs.SetString("Time", DateTime.Now.ToString());
+        }
+
+        var title = "Today's Cryptocurrency Prices by Bex Crypto";
+        var body = "I miss you! Come and grow up your business.";
+        NotificationManager.CancelAll();
+        DateTime timeToNotify = DateTime.Now.AddMinutes(120);
+        TimeSpan time = timeToNotify - DateTime.Now;
+        NotificationManager.SendWithAppIcon(time, title, body, Color.green, NotificationIcon.Bell);
+
+
+
+
+    }
+
+    public void ResetButton()
+    {
+        var isHasCrypto = false;
+        for (int i = 0; i < sprites.Count; i++)
+        {
+            if (PlayerPrefs.HasKey(sprites[i].name))
+            {
+                isHasCrypto = true;
+                break;
+            }
+        }
+
+        if (isHasCrypto)
+        {
+            resetMessage.gameObject.SetActive(true);
+        }
+        else
+        {
+            StartCoroutine(WarningMessage("You don't have crypto data yet!", cancelTick));
+        }
+
+    }
+
+    public void YesOrNoButton()
+    {
+        var getButton = UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject;
+        if (getButton.name.Equals("Yes"))
+        {
+            resetMessage.gameObject.SetActive(false);
+            StartCoroutine(WarningMessage("Your Crypto Data Successfully Deleted!", acceptTick));
+            PlayerPrefs.DeleteAll();
+            SceneManager.LoadScene("Cryptos");
+        }
+        else
+        {
+            resetMessage.gameObject.SetActive(false);
         }
     }
 
