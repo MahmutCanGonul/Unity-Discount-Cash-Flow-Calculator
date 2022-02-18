@@ -115,7 +115,6 @@ public class Cryptos : MonoBehaviour
     {
         yield return new WaitForSeconds(5f);
 
-
         var currentUSD = PlayerPrefs.GetFloat("USD");
         if (content.transform.childCount > 0)
         {
@@ -453,15 +452,12 @@ public class Cryptos : MonoBehaviour
             PlayerPrefs.SetString("Time", DateTime.Now.ToString());
         }
 
-        var title = "Today's Cryptocurrency Prices by Bex Crypto";
+        var title = "Bitcoin: ";
         var body = "I miss you! Come and grow up your business.";
         NotificationManager.CancelAll();
         DateTime timeToNotify = DateTime.Now.AddMinutes(120);
         TimeSpan time = timeToNotify - DateTime.Now;
-        NotificationManager.SendWithAppIcon(time, title, body, Color.green, NotificationIcon.Bell);
-
-
-
+        NotificationManager.SendWithAppIcon(time, title + GetUSDPrice("BTC").ToString()+" $", body, Color.green, NotificationIcon.Bell);
 
     }
 
